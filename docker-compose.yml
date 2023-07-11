@@ -1,0 +1,35 @@
+version: "3"
+services:
+
+  dwf-twitter-tools:
+    image: dwf-twitter-tools
+    build: 
+      context: .
+      dockerfile: Dockerfile
+
+    restart: always
+    volumes:
+      - ./:/webapps
+    ports:
+      - 6006:5005
+    networks:
+      - base-network
+    command: gunicorn --bind 0.0.0.0:5005 --workers=1 main:app --log-level=debug -c conf/gunicorn.py --timeout 0
+
+  dwf-twitter-queue:
+    image:  dwf-twitter-tools
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    volumes:
+      - ./:/webapps
+    networks:
+      - base-network
+    command: celery --app worker worker -Q twitter-queue -l INFO -c 4
+
+
+networks:
+  base-network:
+    external: true
+

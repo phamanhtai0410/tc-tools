@@ -1,0 +1,43 @@
+# -*- coding: utf-8 -*-
+"""
+   Description:
+        -
+        -
+"""
+from marshmallow import Schema, EXCLUDE, fields, validate
+from lib import DatetimeField
+from lib.schema import ObjectIdField
+
+
+
+
+class InputFavouriteAccountRequestSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+        ordered = True
+    
+    usernames = fields.List(fields.Str(), default=[], missing=[])
+
+# class FollowerWatchSchema(Schema):
+#     class Meta:
+#         unknown = EXCLUDE
+#         ordered = True
+
+#     # _id = ObjectIdField()
+#     username = fields.String()
+#     total = fields.Integer()
+#     percent_1d = fields.Float()
+#     percent_3d = fields.Float()
+#     percent_7d = fields. Float()
+#     amount_1d = fields.Integer()
+
+
+# class ListFollowerWatchResponseSchema(Schema):
+#     class Meta:
+#         unknown = EXCLUDE
+#         ordered = True
+
+#     items = fields.List(fields.Nested(FollowerWatchSchema()), default=[], missing=[])
+#     page = fields.Integer()
+#     page_size = fields.Integer()
+#     num_of_page = fields.Integer()
