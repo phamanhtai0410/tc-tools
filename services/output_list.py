@@ -1,29 +1,15 @@
 from lib.utils import dt_utcnow
-from models import AccountsFilteredDetailModel, VerticalKeywordGroupModel, FollowerGroupModel, FavouriteAccountModel, AnalyticsModel,ExcludeAccountModel
+from models import AccountsFilteredDetailModel, VerticalKeywordGroupModel, FollowerGroupModel, FavouriteAccountModel, OutputListModel, GlobalSettingModel,AnalyticsModel,ExcludeAccountModel
 import re
-from datetime import timezone
-from pydash import py_
-from pydash import get
-import copy
-
-from bson import ObjectId
-from pydash import get, set_
-import bson
-from slugify import slugify
-import pydash as py_
-
-from exceptions.follower_group import FollowerGroupNotExistedEx
-from exceptions.request import NotValidObjectIdEx
-from exceptions.analytics import AnalyticsNotFoundEx, AnalyticsVerticalKeywordGroupCanNotDuplicateEx, \
-    AnalyticsVerticalNameExistedEx, VerticalNameExistedEx, VerticalNotFoundEx
-from exceptions.vertical_keyword_group import VerticalKeywordGroupNotExistedEx, KeywordURLNotExistedEx, \
-    AccountProfileLinkNotExistedEx
-from lib.enums.task_status import TaskStatus
-from lib.utils import random_str, dt_utcnow
-
+from datetime import datetime, timedelta,timezone
 import datetime
-class ScoreService:
-    
+import json
+import pydash as py_
+from pydash import get, set_
+from flask import jsonify
+current_date = datetime.date.today().strftime('%d/%m/%Y')
+
+class OutputListService:
     @staticmethod
     def get_alnum(string):
         if not string:
@@ -167,45 +153,72 @@ class ScoreService:
         account_verified_weight = result["account_verified_weight"] / 100
         recency_weight = result['recency_weight'] / 100
         vertical_keyword_groups_weight = result['vertical_keyword_groups_weight'] / 100
-        
-
-        print(len(user_profiles_ext))
-
-
         for i in user_profiles_ext:
             i['in_watch_account'] = cls.check_favoutrite_account(i['username'])
             i["score_keyword_relevance"] = i["keyword_relevance"] * 100 / max_keyword_relevance
             i["score_follower_quality"] = i["follower_quality"] * 100 / max_follower_quality
             i["score_verification_status"] = i["verification_status"] * 100 / max_verification_status
-            i["score_recency"] = (i["recency"]/86400 - 1672444800/86400) * 100 / (max_recency/86400 - 1672444800/86400)
-            
+            i["score_recency"] = (i["recency"]/86400 - 1672444800/86400) * 100 / (max_recency/86400 - 1672444800/86400)        
             i["total_score"] = round(vertical_keyword_groups_weight * i["score_keyword_relevance"] + follower_quality_weight * i["score_follower_quality"] + account_verified_weight * i["score_verification_status"] +  recency_weight * i["score_recency"], 2)
-            i["score_keyword_relevance"] = round(i["score_keyword_relevance"],2)
-            i["score_follower_quality"] = round(i["score_follower_quality"] ,2)
-            i["score_verification_status"] =round(i["score_verification_status"] ,2)
-            i["score_recency"]= round(i["score_recency"],2)
+            i["output_id"] = current_date
+            i["created_by"] = "CronJob"
+            OutputListModel.insert_one(
+                i
+            )
+        
         return user_profiles_ext
-    
+
     @staticmethod
     def check_favoutrite_account(username):
         return True if FavouriteAccountModel.find({
-            'username': username,
-            'deleted': False
+            'username': username
         }) else False
-        
+
     @classmethod
-    def get_top_score(cls, from_time=0):
+    def output_to_favor(cls,login_info):    
+        temp = AnalyticsModel.find_one(filter={"vertical_name":"analytics_default"})
+        if(temp["auto"] == False):
+            return
+        pipeline = [
+             
+                 {
+                     "$match":{
+                      "deleted": {"$ne": True} 
+                    }
+                 },
+                 {
+                      "$group": {
+                          "_id": "$username"
+                     }
+                 },
+               
+             
+        ]
+        result = list(OutputListModel.col.aggregate(pipeline))
+    
+   
+        for i in result:
+            obj5 = FavouriteAccountModel.find_one(filter={'username': i['_id']})
+            if obj5 == None:
+                             
+                FavouriteAccountModel.insert_one({
+                    'username': i['_id'],
+                    'deleted': False,
+                    'created_by': get(login_info, 'user.username') or "admin",
+                    'updated_by': get(login_info, 'user.username') or "admin",
+                })
+        return
+                
+    @classmethod
+    def get_top_score(cls,login_info):
         _now = dt_utcnow().timestamp()
         
-        if from_time == 0 or not from_time:
-            # from_time = _now - 86400 * 365
-            from_time = 1672531200
+        # from_time = _now - 86400 * 365
         
-        print('* From time = ', from_time)
-
+        # print('* From time = ', from_time)
         _filter = {
             'created_at': {
-                '$gte': from_time
+                '$gte': 1672531200 # 1/1/2023
             }
         }
 
@@ -215,16 +228,8 @@ class ScoreService:
                         "deleted": False
                         }
         excluded_accounts = ExcludeAccountModel.find(filter=exclude_filter)
-        _user_profiles = []
-        for user in _user:
-            if user['username'] in [acc['username'] for acc in excluded_accounts]:
-                user['exclude_account'] = True
-            else:
-                user['exclude_account'] = False
-            _user_profiles.append(user)
-        print(_user_profiles[0])    
-        print("Total: ", len(_user_profiles))
-        
+        _user_profiles = [i for i in _user if i['username'] not in [acc['username'] for acc in excluded_accounts]]                   
+        print("Total: ", len(_user_profiles))      
         account_list = cls.get_account_list()
         keywords_list = cls.get_keyword_list()
         people_keywords = cls.get_people_keywords()
@@ -235,48 +240,24 @@ class ScoreService:
         max_follower_quality = 0
         max_verification_status = 0
         max_recency = 0
-        # _user_profiles= py_.map_(_user_profiles, lambda x: py_.defaults(x, {"created_time": None}))
-        for i in _user:
+
+        for i in _user_profiles:
             # if i['username'] != 'settlefi':
             #     continue
-
             if cls.valid_description(i) and cls.is_protocol(i) and (cls.number_friendship(i, account_list) > 0 or cls.keywords_in_description(i, keywords_list) > 0) and not cls.people_keywords_in_description(i, people_keywords) and not cls.social_keywords_in_description(i, social_keywords):
+                
                 url = "https://twitter.com/" + i["username"]
                 keywords_in_description = cls.keywords_in_description(i, keywords_list)
                 number_of_friendship = cls.number_friendship(i, account_list)
-                timestemp = py_.get(i,'created_time').timestamp()
-                timestemp2 = py_.get(i,'updated_time').timestamp()
-                followers_count = i['public_metrics']['followers_count']
+                
                 _item = {
-                    'username': py_.get(i,'username'),
-                    'name': i['name'],
-                    'verified':i['verified'],
-                    'verified_type':i['verified_type'],
-                    'created_at':i['created_at'],
-                    'public_metrics':i['public_metrics'],
-                    'followers_count': followers_count,
-                    'description':i['description'],
-                    'friendship':i['friendship'],
-                    'note':py_.get(i,'note'),
-                    'created_time': timestemp,
-                    'created_by': py_.get(i,'created_by'),
-                    'updated_time':timestemp2,
-                    'updated_by':py_.get(i,'updated_by'),
-                    'deleted':py_.get(i,'deleted'),
-                    'check_friendship':py_.get(i,'check_friendship'),
-                    'user_location':py_.get(i,'user_location'),
-                    'user_professional_category':py_.get(i,'user_professional_category'),
-                    'user_url':py_.get(i,'user_url'),
-                    
+                    'username': i['username'],
                     'twitter_url': url,
                     'keyword_relevance': keywords_in_description,
                     'follower_quality': number_of_friendship,
                     'verification_status': 100 if i['verified_type'] == 'gold' else (40 if i['verified_type'] == 'blue' else 10),
-                    'recency': i['created_at'],
-                    'New': True if(timestemp > (_now - 86400 *3)) else False
-                    
+                    'recency': i['created_at']
                 }
-
                 _output.append(_item)
                 
                 if _item["keyword_relevance"] > max_keyword_relevance:
@@ -290,12 +271,6 @@ class ScoreService:
                     
                 if _item["recency"] > max_recency:
                     max_recency = _item["recency"]
-
-                if _item['username'] in [acc['username'] for acc in excluded_accounts]:
-                    _item['exclude_account'] = True
-                else:
-                    _item['exclude_account'] = False
-                     
                     
         # print("---- OUTPUTS = ", _output)
         # print(max_keyword_relevance,
@@ -310,10 +285,57 @@ class ScoreService:
             max_verification_status,
             max_recency
         ), key=lambda x: x['total_score'], reverse=True)
-    
         
-
         return {
             'items': sorted_user_profiles,
             'status': 'success'
         }
+
+    
+    @classmethod
+    def get_output_list(cls, login_info,timestamp):
+        dt = datetime.datetime.fromtimestamp(timestamp)
+        date = dt.strftime('%d/%m/%Y')
+        result = OutputListModel.find(
+            filter={
+                "output_id": date,
+                "deleted": False
+            }
+        )
+        output_list = []
+        current_time = dt_utcnow().timestamp()
+        for item in result:
+            item["new"] = cls.check_new(item["username"],current_time)
+            item["created_time"] = py_.get(item, 'created_time').timestamp()
+            item["updated_time"] = py_.get(item, 'updated_time').timestamp()
+            output_list.append(json.loads(json.dumps(item, default=str))) 
+        return output_list
+            
+
+    @staticmethod
+    def check_new(username,current_time):
+        _account = AccountsFilteredDetailModel.find_one(
+            filter={
+                "username": username,
+                "deleted": False
+            }
+        )
+        create_time = py_.get(_account, 'created_time').timestamp()
+        if (current_time - create_time) > (3 * 24 * 60 * 60):
+            return False
+        else:
+            return True
+
+        
+                
+            
+        
+        
+
+
+
+
+
+
+
+        

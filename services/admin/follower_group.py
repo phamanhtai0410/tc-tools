@@ -69,6 +69,51 @@ class AdminFollowerGroupService:
         return _result
 
     @classmethod
+    def add(cls, form_data):
+        name= form_data['_name']
+        name2 =form_data['_add']
+        obj = FollowerGroupModel.find_one(
+            filter={
+                'name': name
+            }
+        )
+        arr= get(obj,'accounts')
+        arr.append(name2)
+        FollowerGroupModel.update_one(
+             filter={'name': name},
+              obj={
+                'accounts': arr,
+                'updated_by': 'services:AnalyticsVerticalResultService:update_account_filtered_detail'
+
+            }
+         )  
+        return
+
+
+    @classmethod
+    def remove(cls, form_data):
+        name= form_data['_name']
+        name2 =form_data['_remove']
+        obj = FollowerGroupModel.find_one(
+            filter={
+                'name': name
+            }
+        )
+        arr= get(obj,'accounts')
+        if name2 in arr:
+            arr.remove(name2)
+            
+        FollowerGroupModel.update_one(
+             filter={'name': name},
+              obj={
+                'accounts': arr,
+                'updated_by': 'services:AnalyticsVerticalResultService:update_account_filtered_detail'
+
+            }
+         )  
+        return
+    
+    @classmethod
     def create(cls, login_info, form_data):
 
         _name = get(form_data, 'name')
@@ -126,3 +171,21 @@ class AdminFollowerGroupService:
         })
 
         return {}
+    @classmethod
+    def delete_by_name(cls,form_data,login_info):
+       
+        _name = get(form_data, 'name')
+        # print(_username)
+        account = FollowerGroupModel.find_one({'name': _name, 'deleted': False})
+        # print(account)
+        if account:
+            try:
+                updated_by = get(login_info, 'user.username') or 'ADMIN'
+                account['deleted'] = True
+                account['updated_by'] = updated_by
+                FollowerGroupModel.update_one({'_id': account['_id']}, account)
+                return {'message': 'Follower group deleted', 'name': _name}
+            except Exception as e:
+                return {'error': str(e)}
+        else:
+            return {'error': 'Username does not exist or already deleted', 'name': _name}

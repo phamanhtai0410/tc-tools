@@ -9,23 +9,12 @@ from lib import DatetimeField
 from lib.schema import ObjectIdField
 
 
-class InputFavouriteAccountsRequestSchema(Schema):
+class InputExcludeAccountsRequestSchema(Schema):
     class Meta:
         unknown = EXCLUDE
         ordered = True
-    
     usernames = fields.List(fields.String)
-class NoteFavouriteAccountRequestSchema(Schema):
-    class Meta:
-        unknown = EXCLUDE
-        ordered = True
-    note = fields.String()
-    
-class NoteFavouriteAccountResponseSchema(Schema):
-    class Meta:
-        unknown = EXCLUDE
-        ordered = True
-    note = fields.String()
+
 # class FollowerWatchSchema(Schema):
 #     class Meta:
 #         unknown = EXCLUDE

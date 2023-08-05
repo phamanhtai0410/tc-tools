@@ -10,11 +10,8 @@ conf/keys
 /lib
 .DS_Store
 test.py
-__pycache__
+*__pycache__
 test_ok.json
 test/
 *.env
-/.venv
-__pycache__/
-.env*
-.gitlab-ci.yml
+library/

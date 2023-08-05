@@ -45,7 +45,7 @@ class AnalyticsLogsSchema(Schema):
     engagement_weight = fields.Float(required=True, validate=validate.Range(min=0, max=100))
     follower_quality_weight = fields.Float(required=True, validate=validate.Range(min=0, max=100))
     account_verified_weight = fields.Float(required=True, validate=validate.Range(min=0, max=100))
-    end_date = DatetimeField(required=True)
+    end_date = DatetimeField(required=False)
     exclude_account = fields.List(fields.String, allow_none=True, default=[], missing=[])
     followers_count = fields.Nested(RangeObjSchema, required=False, allow_none=True, default=None)
     following_count = fields.Nested(RangeObjSchema, required=False, allow_none=True, default=None)

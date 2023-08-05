@@ -1,15 +1,13 @@
 import sentry_sdk
-from flask import Flask
+from flask import Flask, request
 from flask_restful import Api
 from sentry_sdk.integrations.flask import FlaskIntegration
-
+from flask_cors import CORS
+from flask_cors import cross_origin
 from config import Config
 from connect import connect_db
-
 app = Flask(__name__)
 api = Api(app)
-
-
 @app.errorhandler(404)
 def page_not_found(error):
     return {
@@ -33,6 +31,11 @@ def server_error_page(error):
 # Init database
 connect_db.init_app(app, Config.MONGO_URI)
 
+@app.before_request
+def before_request():
+    from services.ip_logger import IpLoggerService
+    IpLoggerService.log_new_request()
+    
 
 @app.before_first_request
 def before_first_request():

@@ -59,3 +59,13 @@ class Config:
 
     RATE_QUANTITY = 10
     RATE_POINT = 1
+    
+    # Output Call
+    API_URL = os.getenv('API_URL')
+
+    # Telebot
+    BOT_API = os.getenv('BOT_API')
+    CHAT_ID = os.getenv('CHAT_ID')
+
+    # IP
+    IP = json.loads(os.getenv('IP', '[]'))

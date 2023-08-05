@@ -11,6 +11,12 @@ class AccountsFilteredRequestSchema(Schema):
     account_names = fields.List(fields.String, required=True, allow_none=False)
 
 
+class AccountsFilteredNote(Schema):
+    class Meta:
+        unknown = EXCLUDE
+        ordered = True
+    username = fields.String(required=True, allow_none=False)
+    note = fields.String(required=False, allow_none=True)
 class AccountFilteredDetailRequestSchema(Schema):
     class Meta:
         unknown = EXCLUDE
@@ -28,3 +34,4 @@ class AccountFilteredDetailRequestSchema(Schema):
     user_url = fields.String(required=False, allow_none=True)
     user_location = fields.String(required=False, allow_none=True)
     user_professional_category = fields.String(required=False, allow_none=True)
+    note = fields.String(required=False, allow_none=True)

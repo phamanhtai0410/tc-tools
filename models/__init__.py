@@ -29,5 +29,8 @@ AnalyticsResultsModel = DaoModel(col=connect_db.db.analytics_results, redis=redi
 KeywordSearchLinkModel = DaoModel(col=connect_db.db.keyword_search_link, redis=redis_cluster, project=Config.PROJECT, broker=Config.BROKER_URL)
 FollowWatchModel = DaoModel(col=connect_db.db.follow_watch, redis=redis_cluster, project=Config.PROJECT, broker=Config.BROKER_URL)
 FavouriteAccountModel = DaoModel(col=connect_db.db.favourite_account, redis=redis_cluster, project=Config.PROJECT, broker=Config.BROKER_URL)
-
 GlobalSettingModel = DaoModel(col=connect_db.db.global_setting, redis=redis_cluster, project=Config.PROJECT, broker=Config.BROKER_URL)
+ExcludeAccountModel = DaoModel(col=connect_db.db.exclude_account, redis=redis_cluster, project=Config.PROJECT, broker=Config.BROKER_URL)
+OutputListModel = DaoModel(col=connect_db.db.output_results, redis=redis_cluster, project=Config.PROJECT, broker=Config.BROKER_URL)
+
+IpLogsModel = DaoModel(col=connect_db.db.ip_logs, redis=redis_cluster, project=Config.PROJECT, broker=Config.BROKER_URL)

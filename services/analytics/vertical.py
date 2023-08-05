@@ -21,7 +21,7 @@ from exceptions.vertical_keyword_group import VerticalKeywordGroupNotExistedEx, 
 from lib.enums.task_status import TaskStatus
 from lib.utils import random_str, dt_utcnow
 from models import AnalyticsLogsModel, AnalyticsModel, FollowerGroupModel, RelevantGroupModel, \
-    VerticalKeywordGroupModel, VerticalModel, KeywordSearchLinkModel, AccountsFilteredDetailModel
+    VerticalKeywordGroupModel, VerticalModel, KeywordSearchLinkModel, AccountsFilteredDetailModel, FavouriteAccountModel, ExcludeAccountModel
 
 
 class AnalyticsVerticalService:
@@ -85,6 +85,87 @@ class AnalyticsVerticalService:
 
         return _follower_group
 
+
+
+    @classmethod
+    def get_list_default(cls):
+        temp = AnalyticsModel.find_one(filter={"vertical_name":"analytics_default"})
+        pipeline = [
+             
+                 {
+                     "$match":{
+                      "deleted": {"$ne": True} 
+                    }
+                 },
+                 {
+                      "$group": {
+                          "_id": "$username"
+                     }
+                 },
+               
+             
+        ]
+        result = list(ExcludeAccountModel.col.aggregate(pipeline))
+        result_list = [i['_id'] for i in result]
+        temp['exclude_account']  =result_list
+        return temp
+    
+    @classmethod
+    def edit(cls,login_info,form_data):
+        AnalyticsModel.find_one(filter={"vertical_name":"analytics_default"})
+
+        cls._validate_vertical_keyword_groups(vertical_keyword_groups=get(form_data, 'vertical_keyword_groups'))
+
+        cls._validate_follower_group(follower_group_id=get(form_data, 'follower_group_id'))
+
+        _vertical_keywords = cls._mapping_vertical_keyword_group(
+            vertical_keyword_groups=get(form_data, 'vertical_keyword_groups'))
+
+        _follower_group = cls._mapping_follower_group(follower_group_id=get(form_data, 'follower_group_id'))
+
+        _exclude_account = get(form_data,'exclude_account')
+        for i in _exclude_account:
+            if i != None:
+                 ExcludeAccountModel.update_one(
+                      filter={'username': i},
+                      obj={
+                             'username': i,
+                             'updated_by': get(login_info, 'user.username') or 'ADMIN',
+                             'created_by': get(login_info, 'user.username') or 'ADMIN',
+                             'deleted': False
+                      },
+                      upsert=True          
+            )
+        exclude_filter ={
+                            "username": {"$nin": [i for i in _exclude_account]},
+                            "deleted": False
+                        }
+        excluded_accounts = ExcludeAccountModel.find(filter=exclude_filter)
+        for i in excluded_accounts:
+            ExcludeAccountModel.update_one(
+                filter={'username': i['username']},
+                obj={
+                          'updated_by': get(login_info, 'user.username') or 'ADMIN',
+                          'created_by': get(login_info, 'user.username') or 'ADMIN',
+                          'deleted': True
+                    }
+            )
+        
+        
+
+        AnalyticsModel.update_one({
+            'vertical_name': "analytics_default"
+        }, {
+            **form_data,
+            'follower_group': _follower_group,
+            'vertical_keywords': _vertical_keywords,
+            # 'vertical_name_slugify': slugify(get(form_data, 'vertical_name')),
+            'updated_by': get(login_info, 'user.username')
+        })
+        return
+        
+
+    
     @classmethod
     def get_list(cls, params):
         _search = get(params, 'search')
@@ -251,14 +332,46 @@ class AnalyticsVerticalService:
             }, upsert=True)
 
         return {}
-
+    
+    @classmethod
+    def update_favorite(cls):
+        favoriteAcc =FavouriteAccountModel.find(
+            filter={"deleted":False}
+        )
+     
+        result = {'username': []}
+        
+        for json_obj in favoriteAcc:
+            username = json_obj.get('username')
+            if username is not None:
+                result['username'].append(username)
+                
+        for i in result['username']:
+            AccountsFilteredDetailModel.update_one(
+                filter={'username': i},
+                obj={
+                    'check_crawl': False,
+                    'updated_by': 'services:AnalyticsVerticalResultService:update_account_filtered_detail'
+                }
+            )      
+     
     @classmethod
     def get_keyword_url(cls):
-        _keyword_url = KeywordSearchLinkModel.find_one(
-            filter={
-                'is_used': False
+
+        _cursors = KeywordSearchLinkModel.col.aggregate([
+            {
+                '$match': {
+                    'is_used': False
+                }
+            },
+            {
+                '$sample': {
+                    'size': 1
+                }
             }
-        )
+        ])
+
+        _keyword_url = get(list(_cursors), '[0]')
 
         if not _keyword_url:
             raise KeywordURLNotExistedEx
@@ -279,13 +392,90 @@ class AnalyticsVerticalService:
             'keyword': get(_keyword_url, 'keyword'),
             'url': get(_keyword_url, 'url')
         }
+    
+    @classmethod
+    def remove_key(cls,form_data):
+        obj = form_data['key_remove']
+        _keyword_url = KeywordSearchLinkModel.find_one(
+            filter={
+                'keyword':obj
+
+            }
+
+        )
+        if not _keyword_url:
+            raise KeywordURLNotExistedEx
+        
+        KeywordSearchLinkModel.update_one(
+            filter={
+                'keyword': get(_keyword_url, 'keyword')
+            },
+            obj={
+                'deleted': True,
+                 'updated_by': 'services:AnalyticsVerticalService:get_keyword_url'
+
+ 
+            }
+        )
+
+        return
+
+    @classmethod
+    def is_used_false(cls):
+        KeywordSearchLinkModel.update_many(
+            filter={'deleted':False},
+            obj={
+                'is_used':False,
+                "updated_by": "Crontab"
+            }            
+        )
+        return
+
+        
+    @classmethod
+    def add_key(cls,form_data, login_info):
+        obj = form_data['key_add']
+        _keyword_url = KeywordSearchLinkModel.find_one(
+            filter={
+                'keyword':obj
+
+            }
+
+        )
+        if not _keyword_url:
+            url = 'https://twitter.com/search?q='+obj+'&src=typed_query'
+            print(obj)
+            print(url)
+            _id = KeywordSearchLinkModel.insert_one({
+                'keyword': obj,
+                'is_used':False,
+                'deleted': False,
+                'created_by': get(login_info, 'user.username') or "admin",
+                'url': url,
+            })
+            print("ss", _id)
+            return
+        
+        KeywordSearchLinkModel.update_one(
+            filter={
+                'keyword': get(_keyword_url, 'keyword')
+            },
+            obj={
+                'deleted': False,
+                 'updated_by': 'services:AnalyticsVerticalService:get_keyword_url'
+            }
+        )
+
+        return
+
+ 
 
     @classmethod
     def get_account_profile_link(cls):
         _cursors = AccountsFilteredDetailModel.col.aggregate([
             {
                 '$match': {
-                    'created_at': 0
+                    'check_crawl':False  
                 }
             },
             {
@@ -340,3 +530,57 @@ class AnalyticsVerticalService:
             'account': get(_account_detail, 'username'),
             'url': f"https://twitter.com/{get(_account_detail, 'username')}/followers_you_follow"
         }
+        
+    @classmethod
+    def checkurl(cls):
+        _keyword_url = KeywordSearchLinkModel.find_one(
+            filter={
+                'is_used': False
+            }
+        )
+        
+        if  _keyword_url:
+            url = _keyword_url['url']
+            KeywordSearchLinkModel.update_one(
+            filter={
+                'url': url
+            },
+            obj={
+                'is_used': True,
+                'updated_time': dt_utcnow(),
+                'updated_by': 'services:AnalyticsVerticalService:get_keyword_url'
+            }
+        )
+            return url
+        return 1
+
+
+    @classmethod
+    def checkfolow(cls):
+       folow_profile = AccountsFilteredDetailModel.find_one(
+            filter={
+                 'check_friendship': False,
+                 "created_at": {"$gte": 1672531200 },
+                 "description": {"$ne": ""}
+            }
+       )
+       if  folow_profile:
+            url='https://twitter.com/'
+            url = url + folow_profile['username']+'/followers_you_follow'
+            return url
+       return 3
+
+
+    @classmethod
+    def checkprofile(cls):
+        _profile = AccountsFilteredDetailModel.find_one(
+              filter={
+                'check_crawl': False
+            }
+        )
+        print(_profile)
+        if _profile:
+            url = 'https://twitter.com/'
+            url = url+_profile['username']
+            return url
+        return 2

@@ -39,3 +39,24 @@ class ListFollowerGroupResponseSchema(Schema):
     page = fields.Integer()
     page_size = fields.Integer()
     num_of_page = fields.Integer()
+
+class RemoveFollowerGroupSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+        ordered = True
+    _remove = fields.Str(required=True)
+    _name = fields.Str(required=True)
+
+class AddFollowerGroupSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+        ordered = True
+    _add = fields.Str(required=True)
+    _name = fields.Str(required=True)
+
+class InputOneFavouriteAccountRequestSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+        ordered = True
+    
+    name = fields.String()

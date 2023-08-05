@@ -27,8 +27,7 @@ class AnalyticsVerticalResultService:
 
         _page = get(params, 'page')
         _page_size = get(params, 'page_size')
-        _analytic_log_id = get(params, 'analytic_log_id')
-
+        _analytic_log_id = get(params, 'analytic_log_id')   
         _vertical_result = AnalyticsResultsModel.page(
             filter={
                 'analytic_log_id': _analytic_log_id,
@@ -37,7 +36,7 @@ class AnalyticsVerticalResultService:
                 }
             },
             page=_page,
-            page_size=_page_size,
+            page_size=analytic_log_id_page_size,
             sort=-1,
             func_sort=lambda x: get(x, 'total_score')
         )
@@ -111,6 +110,23 @@ class AnalyticsVerticalResultService:
             _writer.writerows(_csv_data)
 
         return _file_dir
+    @classmethod
+    def add_note(cls, note,username):
+        AccountsFilteredDetailModel.update_one(
+            filter={'username':username},
+            obj={'note':note,'updated_by':"admin"}
+
+        )
+    @classmethod
+    def none_accounts(cls, note,username):
+        AccountsFilteredDetailModel.update_one(
+            filter={'username':username},
+            obj={
+                'note':note,
+                'updated_by':"admin",
+                'check_crawl': True,
+                }
+        )    
 
     @classmethod
     def insert_accounts_filtered(cls, analytic_id, usernames):
@@ -144,6 +160,7 @@ class AnalyticsVerticalResultService:
                 'created_by': 'services:AnalyticsVerticalResultService:insert_accounts_filtered',
                 'updated_time': dt_utcnow(),
                 'updated_by': '',
+                'check_crawl':False,
             })
 
         _inserted = AccountsFilteredModel.find_one(filter={'analytic_id': ObjectId(analytic_id)})
@@ -189,6 +206,7 @@ class AnalyticsVerticalResultService:
                 'created_at': 0,
                 'public_metrics': {},
                 'description': '',
+                'check_friendship':True,
                 'friendship': _new_followers,
                 'created_time': dt_utcnow(),
                 'created_by': 'services:AnalyticsVerticalResultService:insert_account_friendship',
@@ -207,6 +225,7 @@ class AnalyticsVerticalResultService:
             filter={'_id': get(_inserted, '_id')},
             obj={
                 'friendship': _result,
+                'check_friendship':True,
                 'updated_time': dt_utcnow(),
                 'updated_by': 'services:AnalyticsVerticalResultService:insert_account_friendship'
             }
@@ -228,6 +247,7 @@ class AnalyticsVerticalResultService:
             user_url: str,
             user_location: str,
             user_professional_category: str,
+            note: str,
     ):
         _inserted = AccountsFilteredDetailModel.find_one(filter={'username': username})
         if not _inserted:
@@ -253,6 +273,7 @@ class AnalyticsVerticalResultService:
                 'created_by': 'services:AnalyticsVerticalResultService:update_account_filtered_detail',
                 'updated_time': dt_utcnow(),
                 'updated_by': 'services:AnalyticsVerticalResultService:update_account_filtered_detail',
+                'check_crawl':False
             })
 
         # parse join time
@@ -305,7 +326,10 @@ class AnalyticsVerticalResultService:
                 },
                 'created_at': _created_at,
                 'updated_time': dt_utcnow(),
-                'updated_by': 'services:AnalyticsVerticalResultService:update_account_filtered_detail'
+                'updated_by': 'services:AnalyticsVerticalResultService:update_account_filtered_detail',
+                'check_crawl':True,
+                'note':note,
+
             }
         )
 

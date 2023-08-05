@@ -1,4 +1,4 @@
-# tc-tools
+# RESTful API template
 
 ---
 

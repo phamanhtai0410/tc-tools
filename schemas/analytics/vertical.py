@@ -57,16 +57,15 @@ class AnalyticsVerticalRequestSchema(Schema):
     class Meta:
         unknown = EXCLUDE
         ordered = True
-    vertical_name = fields.String(required=True)
+    vertical_name = fields.String(required=False)
     follower_group_id = ObjectIdField(required=True, validate=IsObjectId())
     vertical_keyword_groups = fields.List(ObjectIdField(), required=True, validate=validate.Length(min=1, max=1))
     vertical_keyword_groups_weight = fields.Float(required=True, allow_none=False)
     recency_weight = fields.Float(required=True)
-    engagement_weight = fields.Float(required=True)
     follower_quality_weight = fields.Float(required=True, validate=validate.Range(min=0, max=100))
     account_verified_weight = fields.Float(required=True, validate=validate.Range(min=0, max=100))
-    end_date = DatetimeField(required=True)
-    exclude_account = fields.List(fields.String, allow_none=True, default=[], missing=[])
+    end_date = DatetimeField(required=False)
+    exclude_account = fields.List(fields.String,required = False, allow_none=True, default=[], missing=[])
     followers_count = fields.Nested(RangeObjSchema, required=False, allow_none=True, default=None)
     following_count = fields.Nested(RangeObjSchema, required=False, allow_none=True, default=None)
     tweet_count = fields.Nested(RangeObjSchema, required=False, allow_none=True, default=None)
@@ -86,6 +85,7 @@ class AnalyticsVerticalRequestSchema(Schema):
     account_no_verified_point = fields.Float(required=False, allow_none=False, default=1)
     account_verified_point = fields.Float(required=False, allow_none=False, default=2)
     account_business_point = fields.Float(required=False, allow_none=False, default=4)
+    auto = fields.Bool(required=False, allow_none=False, default=1)
 
 
     @post_dump(pass_many=True)
@@ -93,18 +93,14 @@ class AnalyticsVerticalRequestSchema(Schema):
         _error_obj = {}
         _vertical_keyword_groups_weight = py_.get(data, 'vertical_keyword_groups_weight')
         _recency_weight = py_.get(data, 'recency_weight')
-        _engagement_weight = py_.get(data, 'engagement_weight')
         _follower_quality_weight = py_.get(data, 'follower_quality_weight')
         _account_verified_weight = py_.get(data, 'account_verified_weight')
 
-        if sum([_vertical_keyword_groups_weight, _recency_weight, _engagement_weight, _follower_quality_weight, _account_verified_weight]) != 100:
+        if sum([_vertical_keyword_groups_weight, _recency_weight, _follower_quality_weight, _account_verified_weight]) != 100:
             py_.set_(_error_obj, "vertical_keyword_groups_weight", [
                 "Total weight must be 100"
             ])
             py_.set_(_error_obj, "recency_weight", [
-                "Total weight must be 100"
-            ])
-            py_.set_(_error_obj, "engagement_weight", [
                 "Total weight must be 100"
             ])
             py_.set_(_error_obj, "follower_quality_weight", [
@@ -114,11 +110,11 @@ class AnalyticsVerticalRequestSchema(Schema):
                 "Total weight must be 100"
             ])
 
-        _end_date = py_.get(data, 'end_date')
-        if  abs((_end_date - dt_utcnow()).days) > 7:
-            py_.set_(_error_obj, 'end_date', [
-                "The end_date field must be within a 7-day"
-            ])
+        # _end_date = py_.get(data, 'end_date')
+        # if  abs((_end_date - dt_utcnow()).days) > 7:
+        #     py_.set_(_error_obj, 'end_date', [
+        #         "The end_date field must be within a 7-day"
+        #     ])
 
         if _error_obj:
             raise BadRequest(msg="Invalid params", errors=[_error_obj])

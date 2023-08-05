@@ -9,11 +9,11 @@ from pydash import get
 
 from connect import security
 from lib.enums.roles import Roles
-from schemas.analytics.accounts_filtered import AccountsFilteredRequestSchema, AccountFilteredDetailRequestSchema
+from schemas.analytics.accounts_filtered import AccountsFilteredRequestSchema, AccountFilteredDetailRequestSchema, AccountsFilteredNote
 from services.analytics.vertical_result import AnalyticsVerticalResultService
 
 
-class AccountsFilteredResource(Resource):
+class   AccountsFilteredResource(Resource):
 
     @security.http(
         login_required=True,
@@ -22,14 +22,31 @@ class AccountsFilteredResource(Resource):
     )
     def post(self, login_info, form_data):
         _usernames = get(form_data, 'account_names', [])
+        print("-------------------------")
+        print(_usernames)
         _analytic_id = get(form_data, 'analytic_id')
         _result = AnalyticsVerticalResultService.insert_accounts_filtered(
             analytic_id=_analytic_id,
             usernames=_usernames
         )
+        print("*************************")
+        print(_result)
         return {
             '_id': str(_result)
         }
+    
+    # @security.http(
+    #     login_required=True,
+    #     form_data=AccountsFilteredNote(),
+    #     roles=[Roles.ADMIN, Roles.SUPER_ADMIN]
+    # )
+    # def options(self, login_info, form_data):
+    #     note = get(form_data, 'note')
+    #     username = get(form_data,'username')
+    #     AnalyticsVerticalResultService.add_note(
+    #         note=note,username = username
+    #     )
+    #     return {}
 
     @security.http(
         login_required=True,
@@ -49,7 +66,7 @@ class AccountsFilteredResource(Resource):
         _user_url = get(form_data, 'user_url')
         _user_location = get(form_data, 'user_location')
         _user_professional_category = get(form_data, 'user_professional_category')
-
+        _note = get(form_data, 'note')
         _result = AnalyticsVerticalResultService.update_account_filtered_detail(
             username=_username,
             name=_name,
@@ -62,7 +79,8 @@ class AccountsFilteredResource(Resource):
             tweet_count=_tweet_count,
             user_url=_user_url,
             user_location=_user_location,
-            user_professional_category=_user_professional_category
+            user_professional_category=_user_professional_category,
+            note =_note
         )
         return {
             '_id': str(_result)

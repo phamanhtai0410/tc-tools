@@ -20,7 +20,11 @@ class FollowerWatchSchema(Schema):
     percent_1d = fields.Float()
     percent_3d = fields.Float()
     percent_7d = fields. Float()
+    percent_30d = fields.Float()
     amount_1d = fields.Integer()
+    amount_7d = fields.Integer()
+    amount_30d = fields.Integer()
+    is_new = fields.Bool()
 
 
 class ListFollowerWatchResponseSchema(Schema):

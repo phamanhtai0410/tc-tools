@@ -15,12 +15,11 @@ from services.auth.auth import AuthService
 
 
 class AdminUsersResource(Resource):
-
     @security.http(
         login_required=True,
         params=RequestSchema(),
         response=ListUserResponseSchema(),
-        roles=[Roles.ADMIN, Roles.SUPER_ADMIN]
+        roles=[Roles.ADMIN, Roles.SUPER_ADMIN],
     )
     def get(self, login_info, params):
         _result = AdminUsersService.get_list(params=params)
@@ -29,8 +28,10 @@ class AdminUsersResource(Resource):
     @security.http(
         login_required=True,
         form_data=CreateUserRequestSchema(),
-        roles=[Roles.ADMIN, Roles.SUPER_ADMIN]
+        roles=[Roles.ADMIN, Roles.SUPER_ADMIN],
     )
     def post(self, login_info, form_data):
-        _result = AdminUsersService.create_users(login_info=login_info, form_data=form_data)
+        _result = AdminUsersService.create_users(
+            login_info=login_info, form_data=form_data
+        )
         return _result
